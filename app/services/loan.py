@@ -146,7 +146,7 @@ def get_loan_by_user_id(db: Session, user_id: UUID) -> LoanRead:
         retained_job=db_loan.retained_job
     )
 
-def accept_or_refuse_loan(db: Session, loan_id: UUID, new_status: StatusEnum) -> Dict[str, str]:
+def accept_or_refuse_loan(db: Session, loan_id: UUID, new_status: StatusEnum) -> dict[str, str]:
     """
     Updates the status of a loan to either accepted or refused.
 
