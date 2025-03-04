@@ -9,14 +9,22 @@ class User(SQLModel, table=True):
     Represents a user in the system.
 
     Attributes:
-        id (UUID): Unique identifier for the user, generated automatically.
-        email (str): User's email address, must be unique.
-        hashed_password (str): Hashed version of the user's password.
-        is_staff (bool): Indicates if the user has administrative privileges.
-        is_active (bool): Defines if the user's account is currently active.
-        first_connection (bool): Specifies if the user is logging in for the first time.
+        id (UUID): Unique identifier for the user, automatically generated.
+        email (str): User's email address. This must be unique.
+        hashed_password (str): Hashed version of the user's password for authentication.
+        is_staff (bool): Indicates whether the user has administrative privileges (staff).
+        is_active (bool): Indicates if the user's account is currently active.
+        first_connection (bool): Indicates whether the user is logging in for the first time.
+        loans (List[Loan]): List of loans associated with the user (one-to-many relationship).
+        first_name (Optional[str]): First name of the user (optional).
+        last_name (Optional[str]): Last name of the user (optional).
+        username (Optional[str]): The name of the user's company (optional, represents the client's company name).
+        phone_number (Optional[str]): Phone number of the user (optional).
+        advisor_id (Optional[UUID]): Foreign key linking the user to an advisor (optional).
+        advisor (Optional[User]): The advisor associated with the user (self-referential relationship).
+        users (List[User]): List of users assigned to an advisor (one-to-many relationship).
     """
-    
+
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     email: str = Field(unique=True, index=True, nullable=False)
     hashed_password: str = Field(nullable=False)
@@ -25,18 +33,16 @@ class User(SQLModel, table=True):
     first_connection: bool = Field(default=True)
     loans: List["Loan"] = Relationship(back_populates="user")
     first_name: Optional[str] = Field(default=None)
-    last_name: Optional[str] = Field(default= None)
-    username: Optional[str] = Field(default= None)
+    last_name: Optional[str] = Field(default=None)
+    username: Optional[str] = Field(default=None)  # Represents the name of the user's company
     phone_number: Optional[str] = Field(default=None)
 
-    # relation one-to-many. Un conseiller peut avoir plusieur user à conseiller 
+    # One-to-many relationship: An advisor can have multiple users to advise.
     advisor_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
     advisor: Optional["User"] = Relationship(back_populates="users", sa_relationship_kwargs={"remote_side": "User.id"})
 
-    # liste des users qui sont rattachés au conseiller
+    # List of users associated with an advisor (one-to-many relationship).
     users: List["User"] = Relationship(back_populates="advisor")
-
-
 
     def verify_password(self, password: str) -> bool:
         """
@@ -46,14 +52,14 @@ class User(SQLModel, table=True):
             password (str): The plaintext password to verify.
 
         Returns:
-            bool: True if the password is correct, False otherwise.
+            bool: True if the password matches the hashed password, False otherwise.
         """
         return bcrypt.checkpw(password.encode(), self.hashed_password.encode())
 
     @staticmethod
     def hash_password(password: str) -> str:
         """
-        Hashes a given password using bcrypt.
+        Hashes a given password using bcrypt to securely store it.
 
         Args:
             password (str): The plaintext password to hash.
@@ -62,5 +68,5 @@ class User(SQLModel, table=True):
             str: The hashed password as a string.
         """
         salt = bcrypt.gensalt()  # Generate a salt for hashing
-        hashed = bcrypt.hashpw(password.encode(), salt)  # Hash the password
-        return hashed.decode()  # Convert bytes to string
+        hashed = bcrypt.hashpw(password.encode(), salt)  # Hash the password with the salt
+        return hashed.decode()  # Return the hashed password as a string

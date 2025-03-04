@@ -12,6 +12,19 @@ router = APIRouter()
 def login(user: UserConnection, db: Session = Depends(get_db)):
     """
     Authenticates a user and returns an access token.
+
+    This function verifies if the user's email exists in the database and if the provided password
+    is correct. If both checks pass, it generates a JWT access token for the user.
+
+    Args:
+        user (UserConnection): The user login credentials containing email and password.
+        db (Session): The database session, injected by FastAPI.
+
+    Returns:
+        dict: A dictionary containing the access token and token type.
+
+    Raises:
+        HTTPException: If the user is not registered or the password is incorrect, a 401 error is raised.
     """
     # Find user by email
     db_user = db.query(User).filter(User.email == user.email).first()
@@ -32,15 +45,22 @@ def login(user: UserConnection, db: Session = Depends(get_db)):
 @router.get("/verify_token")
 async def verify_token(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    Vérifie si le token est valide et retourne un statut HTTP 200 si OK.
+    Verifies if the provided token is valid and returns a status message if successful.
+
+    This function ensures that the provided JWT token is valid and corresponds to a registered user.
+    If valid, a confirmation message with the user ID is returned.
 
     Args:
-        current_user (dict): L'utilisateur authentifié grâce au token.
-        db (Session): Session de base de données (Dépendance FastAPI).
+        current_user (dict): The current user retrieved from the validated JWT token.
+        db (Session): The database session, injected by FastAPI.
 
     Returns:
-        dict: Un message de confirmation si le token est valide.
+        dict: A confirmation message indicating the token is valid along with the user ID.
+
+    Raises:
+        HTTPException: If the token is invalid or expired, a 401 error is raised.
     """
+    # Ensure the current_user is valid
     if not current_user:
         raise HTTPException(status_code=401, detail="Token invalide ou expiré")
     

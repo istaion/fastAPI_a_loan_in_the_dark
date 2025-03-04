@@ -7,134 +7,74 @@ from sqlalchemy import JSON, Column
 import cloudpickle
 import pandas as pd
 import shap
-import os
-
-ex_data = {"State" : "OH",
-        "Bank" : "CAPITAL ONE NATL ASSOC",
-        "NAICS" : 54,
-        "Term" : 60,
-        "NoEmp" : 13,
-        "NewExist" : 1,
-        "CreateJob" : 0,
-        "RetainedJob":3,
-        "UrbanRural":2,
-        "RevLineCr":"N",
-        "LowDoc":"N",
-        "GrAppv":50000,
-        "Recession":0,
-        "HasFranchise":1
-        }
-
-class StatusEnum(str, Enum):
-    STATUS_REJECT = "refusé"
-    STATUS_ACCEPT = "accepté"
-    STATUS_TO_TREAT = "en attente"
-
-class StateEnum(str, Enum):
-    MN = "MN"
-    UT = "UT"
-    LA = "LA"
-    IN = "IN"
-    MA = "MA"
-    KY = "KY"
-    MT = "MT"
-    NY = "NY"
-    FL = "FL"
-    GA = "GA"
-    CO = "CO"
-    OH = "OH"
-    NH = "NH"
-    CA = "CA"
-    NC = "NC"
-    SC = "SC"
-    SD = "SD"
-    MD = "MD"
-    WA = "WA"
-    AZ = "AZ"
-    WV = "WV"
-    PA = "PA"
-    DE = "DE"
-    TX = "TX"
-    MI = "MI"
-    ID = "ID"
-    AL = "AL"
-    IL = "IL"
-    AK = "AK"
-    WI = "WI"
-    OK = "OK"
-    IA = "IA"
-    ND = "ND"
-    NJ = "NJ"
-    RI = "RI"
-    MS = "MS"
-    MO = "MO"
-    CT = "CT"
-    NV = "NV"
-    OR = "OR"
-    ME = "ME"
-    VA = "VA"
-    KS = "KS"
-    AR = "AR"
-    NM = "NM"
-    TN = "TN"
-    NE = "NE"
-    VT = "VT"
-    HI = "HI"
-    WY = "WY"
-    DC = "DC"
-
-
-class NAICSEnum(str, Enum):
-    NAICS_32 = "32"
-    NAICS_61 = "61"
-    NAICS_33 = "33"
-    NAICS_56 = "56"
-    NAICS_44 = "44"
-    NAICS_54 = "54"
-    NAICS_72 = "72"
-    NAICS_23 = "23"
-    NAICS_31 = "31"
-    NAICS_71 = "71"
-    NAICS_51 = "51"
-    NAICS_42 = "42"
-    NAICS_45 = "45"
-    NAICS_53 = "53"
-    NAICS_48 = "48"
-    NAICS_62 = "62"
-    NAICS_21 = "21"
-    NAICS_81 = "81"
-    NAICS_52 = "52"
-    NAICS_11 = "11"
-    NAICS_49 = "49"
-    NAICS_92 = "92"
-    NAICS_55 = "55"
-    NAICS_22 = "22"
-
+from static.enum import StateEnum, StatusEnum, NAICSEnum
 
 def read_bank_file(file_path: str):
+    """
+    Reads a list of bank names from a file.
+
+    Args:
+        file_path (str): The path to the file containing bank names.
+
+    Returns:
+        List[str]: A list of bank names read from the file.
+    """
     with open('static/banks_name.str', 'r') as f:
         return [line.strip() for line in f.readlines() if line.strip()]
 
 def create_bank_enum(file_path: str):
+    """
+    Creates an Enum for banks using a file containing bank names.
+
+    Args:
+        file_path (str): The path to the file containing bank names.
+
+    Returns:
+        Enum: A dynamically created Enum representing banks.
+    """
     banks = read_bank_file(file_path)
     return Enum('BankEnum', {bank.replace(" ", "_").upper(): bank for bank in banks})
 
-# Créer l'Enum à partir du fichier
+# Create the Enum for banks from the file
 file_path = "banks.txt"
 BankEnum = create_bank_enum(file_path)
 
-
-
-
-
 class Loan(SQLModel, table=True):
+    """
+    Represents a loan associated with a user.
+
+    Attributes:
+        id (UUID): Unique identifier for the loan, generated automatically.
+        user_id (UUID): Foreign key linking the loan to a user.
+        user (Optional[User]): The user associated with the loan.
+        status (StatusEnum): Current status of the loan.
+        state (Optional[StateEnum]): The state where the loan is issued (optional).
+        bank (Optional[BankEnum]): The bank providing the loan (optional).
+        naics (Optional[NAICSEnum]): The NAICS code for the business associated with the loan (optional).
+        rev_line_cr (Optional[int]): Revolving line of credit status (0, 1, or null).
+        low_doc (Optional[int]): Low documentation requirement (0, 1, or null).
+        new_exist (Optional[int]): Indicates if the loan is for a new or existing business (0, 1, or null).
+        create_job (Optional[int]): Job creation status (0 or 1).
+        has_franchise (Optional[int]): Indicates if the business has a franchise (0 or 1).
+        recession (Optional[int]): Indicates if the loan is affected by recession (0 or 1).
+        urban_rural (Optional[int]): Indicates whether the loan is from an urban or rural area (0 or 1).
+        retained_job (Optional[int]): Retained job status (0 or 1).
+        no_emp (Optional[int]): Number of employees (integer).
+        term (int): The loan term in months.
+        gr_appv (float): The gross approval amount for the loan.
+        prediction (Optional[int]): The predicted loan approval outcome (0 or 1).
+        proba_yes (Optional[float]): Probability of loan approval (between 0 and 1).
+        proba_no (Optional[float]): Probability of loan denial (between 0 and 1).
+        shap_values (Optional[List[float]]): SHAP values used to explain the model’s predictions.
+    """
+
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     user_id: UUID = Field(foreign_key="user.id")
     user: Optional["User"] = Relationship(back_populates="loans")
     status: StatusEnum = Field(nullable=False, default=StatusEnum.STATUS_TO_TREAT)
 
     state: Optional[StateEnum] = Field(default=None)
-    bank: Optional[BankEnum] = Field(default=None)  # Should be validated against a predefined list
+    bank: Optional[BankEnum] = Field(default=None)  # Enum validated against predefined list of banks
     naics: Optional[NAICSEnum] = Field(default=None)
 
     rev_line_cr: Optional[int] = Field(default=None)  # 0, 1, or null
@@ -150,19 +90,20 @@ class Loan(SQLModel, table=True):
     term: int = Field(nullable=False)
     gr_appv: float = Field(nullable=False)
 
-    # Prediction Fields
-    prediction: Optional[int] = Field(default=None)  # 0 or 1
-    proba_yes: Optional[float] = Field(default=None)  # Between 0 and 1
-    proba_no: Optional[float] = Field(default=None)  # Between 0 and 1
+    # Prediction-related Fields
+    prediction: Optional[int] = Field(default=None)  # 0 (denied) or 1 (approved)
+    proba_yes: Optional[float] = Field(default=None)  # Probability of approval (between 0 and 1)
+    proba_no: Optional[float] = Field(default=None)  # Probability of denial (between 0 and 1)
     shap_values: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))
 
     def get_data(self) -> Dict:
         """
-        Returns all loan-related data in a dictionary format.
+        Returns a dictionary of loan-related data to be used for making predictions.
 
         Returns:
-            dict: A dictionary containing all loan attributes for make a prediction.
+            dict: A dictionary containing all loan attributes relevant for prediction.
         """
+        # If an attribute is missing, it is set to "missing" for consistency.
         if not self.bank:
             bank = "missing"
         else:
@@ -170,11 +111,11 @@ class Loan(SQLModel, table=True):
         if not self.state:
             state = "missing"
         else:
-            state = self.bank.value
+            state = self.state.value
         if not self.naics:
             naics = "missing"
         else:
-            naics = self.bank.value
+            naics = self.naics.value
         return {
             "State": state,
             "Bank": bank,
@@ -193,13 +134,32 @@ class Loan(SQLModel, table=True):
         }
     
     def make_prediction(self):
+        """
+        Makes a loan prediction using a pre-trained model and updates the prediction fields.
+
+        This method loads a pre-trained LightGBM model, makes a prediction based on the loan's data,
+        and calculates the probabilities of approval and denial. It also computes SHAP values to explain 
+        the prediction.
+
+        Returns:
+            None
+        """
+        # Load the pre-trained LightGBM model from a pickle file
         with open('static/lightGBM_model.pkl', "rb") as f:
             model = cloudpickle.load(f)
+
+        # Prepare the loan data for prediction
         df = pd.DataFrame([self.get_data()])
+
+        # Make a binary prediction (0 or 1) and calculate probabilities
         self.prediction = int(model.predict(df)[0])
         proba = model.predict_proba(df)[0]
-        self.proba_no = proba[0]
-        self.proba_yes = proba[1]
+        self.proba_no = proba[0]  # Probability of denial
+        self.proba_yes = proba[1]  # Probability of approval
+
+        # Apply the preprocessor to the data
         transformed_data = model.named_steps['preprocessor'].transform(df.iloc[[0]])
+
+        # Compute SHAP values for model interpretation
         explainer = shap.TreeExplainer(model.named_steps['model'])
         self.shap_values = list(explainer.shap_values(transformed_data)[0])
