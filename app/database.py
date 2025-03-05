@@ -1,31 +1,30 @@
-from sqlmodel import create_engine, Session
-from contextlib import contextmanager
+from sqlmodel import create_engine
+from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement à partir du fichier .env
 load_dotenv()
 
+DB_SERVER = os.getenv('DB_SERVER')
+DB_NAME = os.getenv('DB_NAME')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+
 # Récupérer la chaîne de connexion PostgreSQL depuis les variables d'environnement
-DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@db/{os.getenv('POSTGRES_DB')}"
+DATABASE_URL = f"mssql+pyodbc://{DB_USER}:{DB_PASSWORD}@{DB_SERVER}/{DB_NAME}?driver=ODBC+Driver+17+for+SQL+Server"
 # DATABASE_URL = "sqlite:///./app/db.sqlite3"
 
 # Create a database engine
-engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL, echo=True)
 
-@contextmanager
+# Créer un sessionmaker
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Fonction de dépendance FastAPI pour obtenir une session
 def get_db():
-    """
-    Provides a database session for dependency injection.
-    
-    This function is used as a context manager to ensure the session is properly
-    closed after use, even if an error occurs.
-    
-    Yields:
-        Session: A database session.
-    """
-    session = Session(engine)
+    db = SessionLocal()
     try:
-        yield session
+        yield db
     finally:
-        session.close()
+        db.close()

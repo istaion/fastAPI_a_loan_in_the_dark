@@ -34,6 +34,11 @@ def init_db():
         with Session(engine) as session:  # Using SQLAlchemy Session for DB operations
             for user in users_data:
                 user_create = UserCreate(email=user["email"], password=user["password"], is_staff=user["is_staff"])
+                # Vérifier si l'utilisateur existe déjà
+                existing_user = session.query(User).filter_by(email=user["email"]).first()
+                if existing_user:
+                    logger.info("L'utilisateur existe déjà")
+                    continue
                 created_user = create_user(db=session, user_create=user_create)
                 list_user_json.append(created_user)
             logger.info("Utilisateurs staff importés avec succès")
